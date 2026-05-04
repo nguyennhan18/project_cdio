@@ -1,0 +1,8 @@
+path: /Users/maichung/DoAn_ML2/dataset
+train: images/train
+val: images/val
+
+nc: 2
+names:
+  0: chicken
+  1: duck
