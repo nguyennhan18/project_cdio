@@ -8,8 +8,6 @@ venv/
 
 # Dataset ảnh — KHÔNG push lên GitHub (quá nặng)
 # Dùng Roboflow để tải về theo hướng dẫn trong README
-dataset/images/
-dataset/labels/
 
 # Model weights — share qua Google Drive
 weights/*.pt
