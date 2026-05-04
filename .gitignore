@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+
+# Dataset ảnh — KHÔNG push lên GitHub (quá nặng)
+# Dùng Roboflow để tải về theo hướng dẫn trong README
+dataset/images/
+dataset/labels/
+
+# Model weights — share qua Google Drive
+weights/*.pt
+*.pt
+
+# Kết quả train (nặng, sinh ra tự động)
+runs/
+review_wrong/
+test_results/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Log
+*.log

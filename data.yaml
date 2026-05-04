@@ -1,0 +1,8 @@
+path: ./dataset          # thư mục gốc dataset (chỉnh lại nếu dùng local)
+train: images/train
+val:   images/val
+
+nc: 2
+names:
+  0: ga
+  1: vit
