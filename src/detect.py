@@ -1,109 +1,67 @@
-"""
-detect.py — Nhận diện & đếm Gà/Vịt real-time từ webcam hoặc video
-Yêu cầu: pip install ultralytics opencv-python
-
-Cách dùng:
-  python src/detect.py --source 0              # webcam
-  python src/detect.py --source video.mp4      # video file
-  python src/detect.py --source video.mp4 --save  # lưu kết quả
-"""
-
 import cv2
 import argparse
-import torch
 from ultralytics import YOLO
-from collections import defaultdict
 
-CLASS_COLORS = {
-    "ga":  (0,  140, 255),   # cam — gà
-    "vit": (255, 144, 30),   # xanh — vịt
-}
+def simple_detect(source_path):
+    # 1. Thiết lập vạch đếm (Vị trí Y)
+    LINE_Y = 450 # Bạn có thể điều chỉnh độ cao của vạch này (từ 0 đến chiều cao video)
+    
+    # 2. Khởi tạo
+    model = YOLO('weights/best.pt')
+    counted_ids = set()
+    total_counts = {"chicken": 0, "duck": 0}
+    prev_positions = {} # Lưu vị trí Y của khung hình trước đó
 
-def parse_args():
-    p = argparse.ArgumentParser()
-    p.add_argument("--source", default=0,
-                   help="0=webcam | đường dẫn video")
-    p.add_argument("--model", default="weights/best.pt",
-                   help="Đường dẫn model .pt")
-    p.add_argument("--conf", type=float, default=0.45)
-    p.add_argument("--iou",  type=float, default=0.50)
-    p.add_argument("--save", action="store_true", default=False)
-    return p.parse_args()
+    # 3. Chạy nhận diện
+    results = model.track(source=source_path, stream=True, conf=0.5, persist=True, tracker="bytetrack.yaml")
 
-def main():
-    args = parse_args()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Device: {device}")
+    print(f"--- Đang chạy chế độ ĐẾM QUA VẠCH (Line: {LINE_Y}) ---")
+    
+    for r in results:
+        frame = r.plot()
+        w, h = frame.shape[1], frame.shape[0]
+        
+        # Vẽ vạch đếm (Màu xanh dương)
+        cv2.line(frame, (0, LINE_Y), (w, LINE_Y), (255, 0, 0), 5)
+        cv2.putText(frame, "VACH DEM", (20, LINE_Y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-    model = YOLO(args.model)
-    names = model.names
+        if r.boxes.id is not None:
+            boxes = r.boxes.xyxy.cpu().numpy().astype(int)
+            ids = r.boxes.id.cpu().numpy().astype(int)
+            clss = r.boxes.cls.cpu().numpy().astype(int)
 
-    source = int(args.source) if str(args.source).isdigit() else args.source
-    cap = cv2.VideoCapture(source)
-    if not cap.isOpened():
-        print(f"Không mở được: {source}"); return
+            for box, obj_id, cls in zip(boxes, ids, clss):
+                label = model.names[cls]
+                cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
+                
+                # Logic đếm qua vạch
+                if obj_id in prev_positions:
+                    prev_y = prev_positions[obj_id]
+                    # Nếu vật thể đi từ trên xuống dưới vạch HOẶC từ dưới lên trên vạch
+                    if (prev_y < LINE_Y <= cy) or (cy < LINE_Y <= prev_y):
+                        if obj_id not in counted_ids:
+                            total_counts[label] += 1
+                            counted_ids.add(obj_id)
+                            print(f"🎯 CẮT VẠCH: {label} (ID:{obj_id}) | Tổng: {total_counts}")
+                
+                # Cập nhật vị trí Y hiện tại cho ID này
+                prev_positions[obj_id] = cy
 
-    writer = None
-    if args.save:
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25
-        writer = cv2.VideoWriter("output_ga_vit.mp4",
-                                 cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        # Hiển thị Dashboard
+        cv2.rectangle(frame, (10, 10), (250, 90), (0, 0, 0), -1) # Nền đen cho bảng điểm
+        cv2.putText(frame, f"CHICKEN: {total_counts['chicken']}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        cv2.putText(frame, f"DUCK: {total_counts['duck']}", (20, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        
+        cv2.imshow("Poultry Line Counter", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-    print("Nhấn Q để thoát.")
-    frame_idx = 0
-
-    while True:
-        ret, frame = cap.read()
-        if not ret: break
-        frame_idx += 1
-
-        results = model.predict(frame, conf=args.conf, iou=args.iou,
-                                verbose=False, device=device)[0]
-
-        counts = defaultdict(int)
-        for box in results.boxes:
-            cls_id = int(box.cls[0])
-            conf   = float(box.conf[0])
-            label  = names[cls_id]
-            color  = CLASS_COLORS.get(label, (200, 200, 200))
-            counts[label] += 1
-
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-
-            text = f"{label} {conf:.2f}"
-            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
-            cv2.rectangle(frame, (x1, y1-th-8), (x1+tw+6, y1), color, -1)
-            cv2.putText(frame, text, (x1+3, y1-4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255,255,255), 1)
-
-        # Bảng đếm
-        lines = [
-            f"Frame: {frame_idx}",
-            f"Ga:    {counts['ga']}",
-            f"Vit:   {counts['vit']}",
-            f"Tong:  {counts['ga'] + counts['vit']}",
-        ]
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (12,12), (175, 12 + len(lines)*24 + 12), (20,20,20), -1)
-        cv2.addWeighted(overlay, 0.55, frame, 0.45, 0, frame)
-        for i, line in enumerate(lines):
-            color = (255,255,255)
-            if "Ga"  in line: color = CLASS_COLORS["ga"]
-            if "Vit" in line: color = CLASS_COLORS["vit"]
-            cv2.putText(frame, line, (20, 32 + i*24),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
-
-        if writer: writer.write(frame)
-        cv2.imshow("Ga & Vit Detection", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"): break
-
-    cap.release()
-    if writer: writer.release()
     cv2.destroyAllWindows()
-    print("Đã thoát.")
+    print(f"--- Kết quả cuối cùng: {total_counts} ---")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    VIDEO_PATH = "/Users/nguyennhan18/Documents/Personal_documents/Project/yolo_env/nhom_ML/demvo.mp4" 
+    parser.add_argument("--source", type=str, default=VIDEO_PATH)
+    args = parser.parse_args()
+    simple_detect(args.source)

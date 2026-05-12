@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poultry AI | Minimalist Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #2D3436;
+            --primary: #00A8FF;
+            --glass: rgba(255, 255, 255, 0.85);
+            --shadow: 0 8px 32px rgba(0,0,0,0.05);
+        }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Artistic Blurry Backgrounds */
+        .bg-images {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            display: flex;
+        }
+        .bg-img {
+            flex: 1;
+            background-size: cover;
+            background-position: center;
+            filter: blur(15px);
+            opacity: 0.4;
+            transition: 1s;
+        }
+
+        .main-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 1100px;
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 40px;
+        }
+
+        .video-section {
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #eee;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+        #stream {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Modern Draggable Line */
+        #drag-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+            cursor: ns-resize;
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(0, 168, 255, 0.5);
+        }
+        #drag-line::before {
+            content: '● DRAG LINE TO SET COUNT AREA';
+            position: absolute;
+            top: -25px;
+            left: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 25px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: -0.5px;
+        }
+
+        .counter-box {
+            background: white;
+            padding: 20px;
+            border-radius: 18px;
+            border: 1px solid rgba(0,0,0,0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .counter-label { font-size: 14px; color: #636e72; font-weight: 500; }
+        .counter-value { font-size: 32px; font-weight: 600; color: var(--accent); }
+
+        .upload-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        #status { font-size: 12px; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="bg-images">
+    <div class="bg-img" style="background-image: url('/static/images/bg_chicken.png');"></div>
+    <div class="bg-img" style="background-image: url('/static/images/bg_duck.png');"></div>
+</div>
+
+<div class="main-card">
+    <div class="video-section" id="vid-box">
+        <img id="stream" src="" alt="Select a video to start detection">
+        <div id="drag-line" style="top: 200px;"></div>
+    </div>
+
+    <div class="control-section">
+        <h1>Poultry AI <span style="font-weight: 300; opacity: 0.5;">Counter</span></h1>
+        
+        <div class="counter-box">
+            <div class="counter-label">CHICKENS DETECTED</div>
+            <div class="counter-value" id="count-chicken">0</div>
+        </div>
+
+        <div class="counter-box">
+            <div class="counter-label">DUCKS DETECTED</div>
+            <div class="counter-value" id="count-duck">0</div>
+        </div>
+
+        <button class="upload-btn" onclick="document.getElementById('videoInput').click()">UPLOAD SOURCE VIDEO</button>
+        <input type="file" id="videoInput" accept="video/*" style="display: none;">
+        
+        <div id="status">Ready to process video files</div>
+    </div>
+</div>
+
+<script>
+    const dragLine = document.getElementById('drag-line');
+    const vidBox = document.getElementById('vid-box');
+    const stream = document.getElementById('stream');
+    let isDragging = false;
+
+    // Draggable Logic
+    dragLine.addEventListener('mousedown', () => isDragging = true);
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = vidBox.getBoundingClientRect();
+        let y = e.clientY - rect.top;
+        if (y < 0) y = 0;
+        if (y > rect.height) y = rect.height;
+        dragLine.style.top = y + 'px';
+        updateServerLine(y);
+    });
+    window.addEventListener('mouseup', () => isDragging = false);
+
+    function updateServerLine(y) {
+        const displayH = vidBox.clientHeight;
+        const videoH = stream.naturalHeight || 640;
+        const realY = Math.round((y / displayH) * videoH);
+        fetch('/update_line', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({y: realY})
+        });
+    }
+
+    // Upload Logic
+    document.getElementById('videoInput').onchange = function(e) {
+        const file = e.target.files[0];
+        const formData = new FormData();
+        formData.append('video', file);
+        document.getElementById('status').innerText = "Processing AI Model...";
+        
+        fetch('/upload', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('status').innerText = "Analysing: " + data.filename;
+            stream.src = "/video_feed?t=" + new Date().getTime();
+        });
+    };
+
+    // Real-time counter
+    setInterval(() => {
+        fetch('/get_counts').then(res => res.json()).then(data => {
+            document.getElementById('count-chicken').innerText = data.chicken;
+            document.getElementById('count-duck').innerText = data.duck;
+        });
+    }, 800);
+</script>
+
+</body>
+</html>

@@ -1,5 +1,5 @@
-# 🐔🦆 Hệ thống nhận diện và đếm Gà & Vịt
-> Đồ án môn học — YOLOv8 + OpenCV + ByteTrack
+# 🐔🦆 Hệ thống AI Nhận diện & Đếm Gà/Vịt Chuyên Nghiệp
+> **Giải pháp thị giác máy tính:** YOLOv8 + ByteTrack + Albumentations
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange)
@@ -9,105 +9,78 @@
 
 ## 📌 Giới thiệu
 
-Hệ thống sử dụng **YOLOv8** để nhận diện và phân biệt **gà** và **vịt** trong video/camera real-time, kết hợp **ByteTrack** để đếm số lượng chính xác mà không bị trùng.
+Dự án này là một hệ thống thị giác máy tính toàn diện nhằm nhận diện và đếm số lượng gà, vịt trong video hoặc camera thời gian thực. Khác với các hệ thống đếm thông thường, dự án này tích hợp **ByteTrack** để quản lý danh tính (ID) vật thể, giúp đếm chính xác số lượng cá thể duy nhất mà không bị trùng lặp khi chúng di chuyển hoặc bị che khuất tạm thời.
 
-| Class | Nhãn | Màu box |
-|-------|------|---------|
-| 0     | Gà   | 🟠 Cam  |
-| 1     | Vịt  | 🔵 Xanh |
-
----
-
-## 👥 Nhóm thực hiện
-
-| Thành viên | Vai trò | Nhiệm vụ |
-|------------|---------|----------|
-| A | Data Lead | Thu thập, label, augment dataset |
-| B | Model Lead | Train YOLOv8, đánh giá model |
-| C | App Lead | Detect real-time, tích hợp đếm |
-| D | PM + Docs | GitHub, báo cáo, slide |
+### ✨ Tính năng nổi bật
+- **Real-time Tracking:** Sử dụng ByteTrack để duy trì ID cho từng cá thể.
+- **Unique Counting:** Đếm tổng số lượng dựa trên tập hợp ID duy nhất đã xuất hiện.
+- **Professional UI:** Giao diện dashboard hiển thị thống kê chuyên nghiệp trực tiếp trên frame.
+- **Robust Augmentation:** Pipeline tăng cường dữ liệu mạnh mẽ với Albumentations.
+- **Deep Evaluation:** Công cụ đánh giá chuyên sâu, tự động trích xuất các trường hợp model dự đoán sai để phân tích.
 
 ---
 
-## 📁 Cấu trúc dự án
+## 📁 Cấu trúc dự án (OOP Design)
 
-```
-ga-vit-detection/
-├── notebooks/
-│   └── train_colab.ipynb     ← Notebook train trên Google Colab
+```text
+project_cdio/
 ├── src/
-│   ├── augment.py            ← Tăng cường dataset
-│   ├── train.py              ← Train YOLOv8 (local)
-│   ├── detect.py             ← Nhận diện real-time
-│   └── check_model.py        ← Đánh giá model
-├── dataset/                  ← KHÔNG push lên GitHub (xem hướng dẫn)
-│   ├── images/train/
-│   ├── images/val/
-│   ├── labels/train/
-│   └── labels/val/
-├── weights/                  ← best.pt sau khi train (share qua GDrive)
-├── results/                  ← Confusion matrix, loss curve
-├── data.yaml
-├── requirements.txt
-├── .gitignore
+│   ├── detect.py         ← 🚀 Module chính: Nhận diện & Tracking (Class Detector)
+│   ├── augment.py        ← 🛠️ Module tăng cường dữ liệu (Class DataAugmenter)
+│   └── check_model.py    ← 📊 Module đánh giá chuyên sâu (Class ModelEvaluator)
+├── dataset/              ← Dữ liệu huấn luyện (YOLO format)
+│   └── data.yaml         ← Cấu hình thông tin class
+├── weights/              ← Nơi lưu trữ model checkpoint (*.pt)
+├── evaluation_results/   ← Kết quả đánh giá và ảnh dự đoán sai
+├── requirements.txt      ← Các thư viện cần thiết
 └── README.md
 ```
 
 ---
-cloen
-## 🚀 Hướng dẫn chạy nhanh
 
-### 1. Clone repo
-```bash
-git clone https://github.com/YOUR_USERNAME/ga-vit-detection.git
-cd ga-vit-detection
-```
+## 🚀 Hướng dẫn sử dụng
 
-### 2. Cài thư viện
+### 1. Cài đặt môi trường
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Tải dataset
-- **Gà:** https://universe.roboflow.com/chicken-detection-e7acb/chicken-detection-gkoje
-- **Vịt:** https://universe.roboflow.com/duck-count-detection/duck-detection-and-counting
-
-Sau khi tải, đặt vào thư mục `dataset/` theo đúng cấu trúc trên.
-
-### 4. Train trên Google Colab
-Mở file `notebooks/train_colab.ipynb` → chạy từng cell theo thứ tự.
-
-### 5. Nhận diện real-time
+### 2. Tăng cường dữ liệu (Data Augmentation)
+Nếu bạn có ít ảnh gốc, hãy chạy script sau để tạo thêm các biến thể:
 ```bash
-# Webcam
+python src/augment.py
+```
+
+### 3. Đánh giá Model
+Sau khi huấn luyện, hãy kiểm tra các chỉ số (mAP, Precision, Recall) và xem các ảnh model dự đoán sai:
+```bash
+python src/check_model.py
+```
+
+### 4. Chạy hệ thống Real-time
+Hệ thống hỗ trợ cả Webcam và Video file:
+```bash
+# Chạy với Webcam
 python src/detect.py --source 0
 
-# Video file
-python src/detect.py --source video.mp4 --save
+# Chạy với Video và lưu kết quả
+python src/detect.py --source data/test_video.mp4 --save
 ```
 
 ---
 
-## 📊 Kết quả
+## 📊 Kết quả đạt được
 
-| Metric | Giá trị |
+| Chỉ số | Giá trị |
 |--------|---------|
 | mAP50  | > 0.85  |
-| FPS    | ~25–30  |
-| Classes| 2 (gà, vịt) |
-
-> Cập nhật sau khi train xong.
+| FPS    | ~30 (trên GPU) |
+| Tracker| ByteTrack |
 
 ---
 
-## 🔗 Tài nguyên
-
-- [Ultralytics YOLOv8 Docs](https://docs.ultralytics.com)
-- [Roboflow Universe](https://universe.roboflow.com)
-- [Google Colab Notebook](notebooks/train_colab.ipynb)
-- [Model weights (Google Drive)](https://drive.google.com/YOUR_LINK) ← cập nhật sau khi train
+## 🔗 Liên hệ & Đóng góp
+Dự án được thực hiện nhằm mục đích nghiên cứu và học tập. Mọi đóng góp vui lòng tạo Issue hoặc Pull Request.
 
 ---
-
-## 📝 License
-MIT License — tự do sử dụng cho mục đích học tập.
+**License:** MIT
